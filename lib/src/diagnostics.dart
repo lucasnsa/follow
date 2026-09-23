@@ -6,10 +6,11 @@ void _fillFeatureDiagnosticProperties(
   _FeatureAccess access,
   _FeatureNode? node,
 ) {
+  final state = access.state;
   properties.add(StringProperty('name', definition.feature.name));
   properties.add(StringProperty(
     'state',
-    switch (access.state) {
+    switch (state) {
       FeatureInitializing() => 'initializing',
       FeatureReady() => 'ready',
       FeatureFailed() => 'failed',
@@ -26,10 +27,9 @@ void _fillFeatureDiagnosticProperties(
     (node?.mounted ?? true) ? 'mounted' : 'unmounted',
     quoted: false,
   ));
-  final failure = access.state;
   properties.add(DiagnosticsProperty<Object?>(
     'error',
-    failure is FeatureFailed ? failure.error : null,
+    state is FeatureFailed ? state.error : null,
     defaultValue: null,
   ));
   properties.add(IntProperty('bindings', definition.bindings.length));

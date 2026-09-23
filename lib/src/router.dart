@@ -1,13 +1,5 @@
 part of '../follow.dart';
 
-/// Serializable URL and local page stacks used by browser back/forward.
-class FollowNavigationState {
-  FollowNavigationState(this.uri) : _locations = const [];
-  FollowNavigationState._(this.uri, this._locations);
-  final Uri uri;
-  final List<Map<String, Object?>> _locations;
-}
-
 enum _Operation { push, replace, go }
 
 class _FollowRouter extends ChangeNotifier {
@@ -207,13 +199,14 @@ class _FollowRouter extends ChangeNotifier {
             for (final location in restore._locations) {
               final target = _uri(location['uri']! as String, '/');
               final ids = (location['ids']! as List).cast<int>();
-              await _resolve(root, target, 0, {},
+              await _resolve(root, target, _segments(target.path), 0, {},
                   first ? _Operation.go : _Operation.push, tx,
                   ids: ids);
               first = false;
             }
           } else {
-            await _resolve(root, uri, 0, {}, operation, tx);
+            await _resolve(
+                root, uri, _segments(uri.path), 0, {}, operation, tx);
           }
           tx.check();
           tx.commit();
@@ -257,14 +250,20 @@ class _FollowRouter extends ChangeNotifier {
     }
   }
 
-  Future<void> _resolve(_FeatureNode node, Uri uri, int offset,
-      Map<String, String> inherited, _Operation operation, _Transaction tx,
-      {List<int> ids = const [], int depth = 0}) async {
+  Future<void> _resolve(
+      _FeatureNode node,
+      Uri uri,
+      List<String> segments,
+      int offset,
+      Map<String, String> inherited,
+      _Operation operation,
+      _Transaction tx,
+      {List<int> ids = const [],
+      int depth = 0}) async {
     tx.check();
     if (!node.mounted) throw _NotFoundNavigation();
     if (ids.isNotEmpty && tx.restoringNodes.add(node)) tx.drafts[node] = [];
-    final segments = _segments(uri.path);
-    final match = _match(node, segments.sublist(offset));
+    final match = _match(node, segments, offset);
     if (match == null) throw _NotFoundNavigation();
     final params = {...inherited, ...match.params};
     final data = RouteData(uri, params);
@@ -288,16 +287,16 @@ class _FollowRouter extends ChangeNotifier {
     final restoreId = depth < ids.length ? ids[depth] : null;
     _RouteEntry? entry;
     if (restoreId != null) {
-      entry = [...stack, ...node.pages]
-          .where((candidate) =>
-              candidate.id == restoreId &&
-              identical(candidate.route, match.route) &&
-              candidate.base == base &&
-              (candidate.route is _MountedFeatureRoute
-                  ? candidate.node?.mounted == true
-                  : candidate.data.uri == uri) &&
-              candidate.arguments == arguments)
-          .firstOrNull;
+      bool matches(_RouteEntry candidate) =>
+          candidate.id == restoreId &&
+          identical(candidate.route, match.route) &&
+          candidate.base == base &&
+          (candidate.route is _MountedFeatureRoute
+              ? candidate.node?.mounted == true
+              : candidate.data.uri == uri) &&
+          candidate.arguments == arguments;
+      entry = stack.where(matches).firstOrNull ??
+          node.pages.where(matches).firstOrNull;
     } else if (match.route is _MountedFeatureRoute && stack.isNotEmpty) {
       final top = stack.last;
       if (identical(top.route, match.route) &&
@@ -338,7 +337,7 @@ class _FollowRouter extends ChangeNotifier {
         await attached;
       }
       tx.check();
-      await _resolve(entry.node!, uri, end, params, operation, tx,
+      await _resolve(entry.node!, uri, segments, end, params, operation, tx,
           ids: ids, depth: depth + 1);
     }
   }
@@ -438,174 +437,4 @@ class _FollowRouter extends ChangeNotifier {
       Center(
           child: Text('Navigation failed: $error',
               textDirection: TextDirection.ltr));
-}
-
-/// A context-bound navigation handle.
-class _FollowNavigation {
-  _FollowNavigation(this.router);
-  final _FollowRouter router;
-  bool get isNavigating => router.isNavigating;
-  Object? get error => router.error;
-  Uri? get currentUri => router.currentUri;
-  Future<void> push(RouteLocation location) => router.push(location);
-  Future<void> replace(RouteLocation location) => router.replace(location);
-  Future<void> go(RouteLocation location) => router.go(location);
-  Future<bool> pop() => router.pop();
-}
-
-Uri _uri(String location, String base) {
-  final value = Uri.parse(location);
-  if (value.hasScheme || value.hasAuthority) {
-    throw ArgumentError('Expected an application path: $location');
-  }
-  final prefix = base.endsWith('/') ? base : '$base/';
-  final resolved = Uri.parse(prefix).resolveUri(value).normalizePath();
-  final path =
-      '/${_segments(resolved.path).map(Uri.encodeComponent).join('/')}';
-  return resolved.replace(path: path);
-}
-
-class _Transaction {
-  _Transaction(this.router);
-  final _FollowRouter router;
-  final drafts = <_FeatureNode, List<_RouteEntry>>{};
-  final data = <_RouteEntry, RouteData>{};
-  final arguments = <_RouteEntry, Object?>{};
-  final restoringNodes = <_FeatureNode>{};
-  final staged = <_RouteEntry>[];
-  final _cancelled = Completer<void>();
-  bool get cancelled => _cancelled.isCompleted || router._disposed;
-  void check() {
-    if (cancelled) throw _Cancelled();
-  }
-
-  List<_RouteEntry> pages(_FeatureNode node) => drafts[node] ?? node.pages;
-  Future<T> wait<T>(Future<T> future) => Future.any([
-        future,
-        _cancelled.future.then<T>((_) => throw _Cancelled()),
-      ]);
-  void cancel() {
-    if (!_cancelled.isCompleted) _cancelled.complete();
-    clearDraft();
-  }
-
-  void clearDraft() {
-    for (final entry in staged) {
-      entry.owner.staging.remove(entry);
-    }
-    staged.clear();
-    drafts.clear();
-    data.clear();
-    arguments.clear();
-    restoringNodes.clear();
-    router._changed();
-  }
-
-  void commit() {
-    check();
-    for (final draft in drafts.entries) {
-      draft.key.pages = draft.value;
-    }
-    for (final update in data.entries) {
-      update.key.data = update.value;
-    }
-    for (final update in arguments.entries) {
-      update.key.arguments = update.value;
-    }
-    clearDraft();
-  }
-}
-
-class _Cancelled implements Exception {}
-
-class _DeniedNavigation implements Exception {}
-
-class _NotFoundNavigation implements Exception {}
-
-class _RedirectNavigation implements Exception {
-  _RedirectNavigation(this.uri);
-  final Uri uri;
-}
-
-class _RouterScope extends InheritedNotifier<_FollowRouter> {
-  const _RouterScope({required super.notifier, required super.child});
-}
-
-class _FollowParser extends RouteInformationParser<FollowNavigationState> {
-  @override
-  Future<FollowNavigationState> parseRouteInformation(
-      RouteInformation information) {
-    final state = information.state;
-    final locations = <Map<String, Object?>>[];
-    if (state is Map && state['follow'] == 1 && state['locations'] is List) {
-      for (final item in state['locations'] as List) {
-        if (item is! Map ||
-            item['uri'] is! String ||
-            item['ids'] is! List ||
-            !(item['ids'] as List).every((id) => id is int && id >= 0)) {
-          locations.clear();
-          break;
-        }
-        locations.add(
-            {'uri': item['uri'], 'ids': List<int>.from(item['ids'] as List)});
-      }
-    }
-    if (locations.isNotEmpty &&
-        locations.last['uri'] != information.uri.toString()) {
-      locations.clear();
-    }
-    return SynchronousFuture(
-        FollowNavigationState._(information.uri, locations));
-  }
-
-  @override
-  RouteInformation restoreRouteInformation(
-          FollowNavigationState configuration) =>
-      RouteInformation(
-          uri: configuration.uri,
-          state: {'follow': 1, 'locations': configuration._locations});
-}
-
-class _FollowDelegate extends RouterDelegate<FollowNavigationState>
-    with ChangeNotifier {
-  _FollowDelegate(this.router) {
-    router.addListener(notifyListeners);
-  }
-  final _FollowRouter router;
-  @override
-  FollowNavigationState? get currentConfiguration => router._configuration;
-  @override
-  Future<void> setNewRoutePath(FollowNavigationState configuration) => router
-      ._navigate(configuration.uri, _Operation.go, restore: configuration);
-  @override
-  Future<bool> popRoute() => router.pop();
-  @override
-  Widget build(BuildContext context) {
-    final root = router._root;
-    if (root == null) return router.loadingBuilder(context);
-    return root.shell ??= Builder(
-      builder: (context) =>
-          root.definition.feature.buildShell(context, const _FeatureOutlet()),
-    );
-  }
-
-  @override
-  void dispose() {
-    router.removeListener(notifyListeners);
-    super.dispose();
-  }
-}
-
-class _FollowInformationProvider extends PlatformRouteInformationProvider {
-  _FollowInformationProvider(this.router, RouteInformation initial)
-      : super(initialRouteInformation: initial);
-  final _FollowRouter router;
-  @override
-  void routerReportsNewRouteInformation(RouteInformation routeInformation,
-      {RouteInformationReportingType type =
-          RouteInformationReportingType.none}) {
-    super.routerReportsNewRouteInformation(routeInformation,
-        type: router._reporting);
-    router._reporting = RouteInformationReportingType.neglect;
-  }
 }

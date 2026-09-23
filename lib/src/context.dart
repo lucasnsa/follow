@@ -65,3 +65,16 @@ final class FollowContext {
       _navigation(listen: false).go(location);
   Future<bool> pop() => _navigation(listen: false).pop();
 }
+
+/// A context-bound navigation handle.
+class _FollowNavigation {
+  _FollowNavigation(this.router);
+  final _FollowRouter router;
+  bool get isNavigating => router.isNavigating;
+  Object? get error => router.error;
+  Uri? get currentUri => router.currentUri;
+  Future<void> push(RouteLocation location) => router.push(location);
+  Future<void> replace(RouteLocation location) => router.replace(location);
+  Future<void> go(RouteLocation location) => router.go(location);
+  Future<bool> pop() => router.pop();
+}
