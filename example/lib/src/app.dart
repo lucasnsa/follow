@@ -5,6 +5,8 @@ import 'design.dart';
 import 'navigation.dart';
 import 'pages.dart';
 import 'products.dart';
+import 'weather/weather_feature.dart';
+import 'selection_page.dart';
 
 class Session {
   bool signedIn = false;
@@ -21,7 +23,9 @@ final appFeature = Feature(
     }),
   ],
   routes: [
-    FeatureRoute.page(homeRoute, builder: (_, __) => const OverviewPage()),
+    FeatureRoute.page(homeRoute, builder: (_, __) => const SelectionPage()),
+    FeatureRoute.page(playgroundRoute,
+        builder: (_, __) => const OverviewPage()),
     FeatureRoute.page(
       exploreRoute,
       builder: (_, __) => const ExplorePage(),
@@ -52,6 +56,7 @@ final appFeature = Feature(
       ],
       feature: (_) => productsFeature,
     ),
+    FeatureRoute.mount(weatherRoute, feature: (_) => weatherFeature),
   ],
 );
 

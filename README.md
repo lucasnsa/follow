@@ -40,13 +40,44 @@ void main() {
 
 ## Dependências por token
 
-Tokens têm identidade, não apenas tipo. Isso permite registrar mais de uma
-dependência do mesmo tipo sem nomes mágicos:
+`Token<T>()` registra a dependência padrão do tipo exato `T`. Você pode lê-la
+pelo tipo, sem guardar a instância do token:
+
+```dart
+Bind.singleton(Token<Api>(), (_) => Api());
+Bind.singleton(Token<Repository>(), (read) => Repository(read<Api>()));
+Bind.async(Token<Report>(), (read) async => Report(await read.async<Repository>()));
+
+final repository = context.follow.read<Repository>();
+final report = await context.follow.readAsync<Report>();
+final state = context.follow.watch<Report>();
+```
+
+Tokens sem nome do mesmo tipo são equivalentes. Cada Feature aceita apenas um
+registro padrão por tipo; uma filha pode sobrescrever o padrão do ancestral.
+A busca usa o tipo exato registrado: `Token<List<int>>()` difere de
+`Token<List<num>>()`, e registrar uma implementação não registra sua interface.
+Informe o tipo explicitamente ou use um contexto que permita inferi-lo.
+
+Tokens nomeados mantêm identidade própria e permitem várias dependências do
+mesmo tipo, inclusive junto com um registro padrão:
 
 ```dart
 final primaryApi = Token<Api>('primary-api');
 final reportsApi = Token<Api>('reports-api');
+
+Bind.singleton(Token<Api>(), (_) => Api());
+Bind.singleton(primaryApi, (_) => Api());
+Bind.singleton(reportsApi, (_) => Api());
+
+final defaultApi = context.follow.read<Api>();
+final primary = context.follow.read(primaryApi);
 ```
+
+Nomes são rótulos de diagnóstico: reutilize a mesma instância de um token
+nomeado. Mesmo dois tokens com o mesmo nome são distintos. `read<Api>()`
+procura apenas o registro padrão; não escolhe automaticamente um nomeado,
+mesmo que seja o único disponível.
 
 `Bind` oferece quatro declarações:
 

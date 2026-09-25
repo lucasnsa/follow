@@ -31,13 +31,17 @@ final class FollowContext {
     return _FollowNavigation(scope!.notifier!);
   }
 
-  T read<T extends Object>(Token<T> token) => _feature(listen: false)(token);
+  /// Reads [token], or the default dependency for the exact type [T].
+  T read<T extends Object>([Token<T>? token]) =>
+      _feature(listen: false).call<T>(token);
 
-  Future<T> readAsync<T extends Object>(Token<T> token) =>
-      _feature(listen: false).async(token);
+  /// Resolves [token], or the default dependency for the exact type [T].
+  Future<T> readAsync<T extends Object>([Token<T>? token]) =>
+      _feature(listen: false).async<T>(token);
 
-  DependencyState<T> watch<T extends Object>(Token<T> token) =>
-      _feature(listen: true).watch(token);
+  /// Observes [token], or the default dependency for the exact type [T].
+  DependencyState<T> watch<T extends Object>([Token<T>? token]) =>
+      _feature(listen: true).watch<T>(token);
 
   FeatureState get featureState => _feature(listen: true).state;
   Future<void> get ready => _feature(listen: false).ready;

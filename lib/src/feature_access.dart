@@ -50,19 +50,12 @@ class _FeatureAccess extends ChangeNotifier implements Read {
   void _parentChanged() => _changed();
 
   void _changed() {
-    if (_closed) return;
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.persistentCallbacks ||
-        phase == SchedulerPhase.midFrameMicrotasks) {
-      if (_notificationScheduled) return;
-      _notificationScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _notificationScheduled = false;
-        if (!_closed) notifyListeners();
-      });
-    } else {
-      notifyListeners();
-    }
+    if (_closed || _notificationScheduled) return;
+    _notificationScheduled = true;
+    _scheduleNotification(() {
+      _notificationScheduled = false;
+      if (!_closed) notifyListeners();
+    });
   }
 
   void _checkOpen() {
@@ -77,16 +70,18 @@ class _FeatureAccess extends ChangeNotifier implements Read {
   }
 
   @override
-  T call<T extends Object>(Token<T> token) => _find(token).getSync() as T;
+  T call<T extends Object>([Token<T>? token]) =>
+      _find(token ?? Token<T>()).getSync() as T;
 
   @override
-  Future<T> async<T extends Object>(Token<T> token) async =>
-      await _find(token).getAsync() as T;
+  Future<T> async<T extends Object>([Token<T>? token]) async =>
+      await _find(token ?? Token<T>()).getAsync() as T;
 
-  DependencyState<T> watch<T extends Object>(Token<T> token) {
-    final entry = _find(token);
+  DependencyState<T> watch<T extends Object>([Token<T>? token]) {
+    final key = token ?? Token<T>();
+    final entry = _find(key);
     if (entry.binding._isFactory) {
-      throw StateError('Factory $token cannot be watched; use read instead');
+      throw StateError('Factory $key cannot be watched; use read instead');
     }
     if (entry.instance == null &&
         entry.failure == null &&

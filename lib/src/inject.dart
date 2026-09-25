@@ -8,16 +8,31 @@ sealed class TokenKey extends DiagnosticableTree {
 
 /// A stable, typed identity for one dependency.
 ///
-/// Tokens intentionally use identity equality. Declare and reuse the same
-/// instance when registering and reading a dependency.
+/// Unnamed tokens identify the default dependency for the exact type [T].
+/// Named tokens use identity equality: reuse the same instance when registering
+/// and reading a named dependency.
 final class Token<T extends Object> extends TokenKey {
-  Token(this.name);
+  Token([String? name]) : _name = name;
+
+  final String? _name;
+  Type get _type => T;
 
   @override
-  final String name;
+  String get name => _name ?? T.toString();
 
   @override
-  String toStringShort() => 'Token<$T>($name)';
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (_name == null &&
+          other is Token &&
+          other._name == null &&
+          _type == other._type);
+
+  @override
+  int get hashCode => _name == null ? _type.hashCode : identityHashCode(this);
+
+  @override
+  String toStringShort() => 'Token<$T>(${_name ?? ''})';
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
@@ -29,8 +44,11 @@ final class Token<T extends Object> extends TokenKey {
 
 /// Reads dependencies while another dependency is being created.
 abstract interface class Read {
-  T call<T extends Object>(Token<T> token);
-  Future<T> async<T extends Object>(Token<T> token);
+  /// Reads [token], or the default dependency for the exact type [T].
+  T call<T extends Object>([Token<T>? token]);
+
+  /// Resolves [token], or the default dependency for the exact type [T].
+  Future<T> async<T extends Object>([Token<T>? token]);
 }
 
 enum Activation { eager, lazy }

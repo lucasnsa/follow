@@ -156,19 +156,12 @@ class _FollowRouter extends ChangeNotifier {
           _containsDeadNode(entry.node!)));
 
   void _changed() {
-    if (_disposed) return;
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.persistentCallbacks ||
-        phase == SchedulerPhase.midFrameMicrotasks) {
-      if (_notificationScheduled) return;
-      _notificationScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _notificationScheduled = false;
-        if (!_disposed) notifyListeners();
-      });
-    } else {
-      notifyListeners();
-    }
+    if (_disposed || _notificationScheduled) return;
+    _notificationScheduled = true;
+    _scheduleNotification(() {
+      _notificationScheduled = false;
+      if (!_disposed) notifyListeners();
+    });
   }
 
   Future<void> _navigate(Uri requested, _Operation operation,

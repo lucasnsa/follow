@@ -95,9 +95,10 @@ class _Resolution implements Read {
   }
 
   @override
-  T call<T extends Object>(Token<T> token) => _find(token).getSync() as T;
+  T call<T extends Object>([Token<T>? token]) =>
+      _find(token ?? Token<T>()).getSync() as T;
 
   @override
-  Future<T> async<T extends Object>(Token<T> token) async =>
-      await _find(token).getAsync() as T;
+  Future<T> async<T extends Object>([Token<T>? token]) async =>
+      await _find(token ?? Token<T>()).getAsync() as T;
 }

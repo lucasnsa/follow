@@ -78,7 +78,7 @@ class AppShell extends StatelessWidget {
     void select(int index) {
       switch (index) {
         case 0:
-          navigation.go(homeRoute.location);
+          navigation.go(playgroundRoute.location);
         case 1:
           navigation.go(productsMountRoute.location);
         case 2:
@@ -160,6 +160,11 @@ class AppShell extends StatelessWidget {
           : AppBar(
               title: const BrandMark(compact: true),
               actions: [
+                IconButton(
+                  onPressed: () => navigation.go(homeRoute.location),
+                  tooltip: 'Trocar exemplo',
+                  icon: const Icon(Icons.swap_horiz_rounded),
+                ),
                 PopupMenuButton<int>(
                   tooltip: 'Navegação',
                   initialValue: section,
@@ -183,6 +188,15 @@ class AppShell extends StatelessWidget {
                     child: BrandMark(compact: true),
                   ),
                   const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: () => navigation.go(homeRoute.location),
+                      icon: const Icon(Icons.swap_horiz_rounded),
+                      label: const Text('Trocar exemplo'),
+                    ),
+                  ),
                   Expanded(
                     child: NavigationRail(
                       extended: true,

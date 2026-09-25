@@ -21,3 +21,4 @@ part 'src/outlet.dart';
 part 'src/context.dart';
 part 'src/app.dart';
 part 'src/diagnostics.dart';
+part 'src/notifications.dart';

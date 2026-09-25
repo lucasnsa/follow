@@ -1,32 +1,34 @@
-# Follow playground
+# Follow: dois exemplos
 
-Um dashboard responsivo para experimentar a API da biblioteca. Execute:
+Execute `flutter run -d chrome` na pasta `example`. A tela inicial (`/`) permite
+escolher entre **Follow Playground** e **Clima & Planos**.
 
-```sh
-flutter run -d chrome
-```
+## Follow Playground
 
-## Rotas
-
-- `/` — visão geral e atalhos para os principais recursos.
-- `/products` — feature protegida por guard, catálogo e ordenação via query.
-- `/products/42` — link direto tipado, ativando a feature sob demanda.
+- `/playground` — visão geral da biblioteca.
+- `/products` e `/products/:id` — feature protegida por guard, catálogo compartilhado,
+  ordenação via query e relatório lazy.
 - `/explore` — laboratório de 404, deny, erros e loading inicial.
 
-O exemplo usa `FollowApp` com uma `Feature` imutável; nenhum widget da
-aplicação cria ou descarta o router. O primeiro acesso a produtos passa por um
-login demonstrativo. O catálogo leva
-5 segundos para ficar pronto, enquanto o layout e o outlet permanecem
-montados. Nos detalhes, o relatório lazy usa `Future.wait` para simular mais
-5 segundos e compartilha a instância entre as páginas da feature.
+O primeiro acesso ao catálogo usa login demonstrativo. O catálogo leva 5 segundos
+para ficar pronto; o relatório lazy leva mais 5 segundos ao ser solicitado. As
+prévias usam um router isolado e não alteram o histórico principal.
 
-A área **Explorar recursos** executa guards reais e configura os builders de
-loading, página não encontrada, acesso negado e erro. As prévias usam um router
-isolado com `RouteInformationProvider` em memória, por isso não alteram o
-histórico principal. Use voltar/avançar do navegador para conferir a restauração
-das pilhas.
+## Clima & Planos
 
-O `shell` de `productsFeature` recebe automaticamente o outlet das rotas filhas.
-O layout usa navegação lateral a partir de
-800 px e menu compacto no celular.
-Não há autenticação, backend, imagens ou dependências visuais externas.
+- `/weather` — previsão de São Paulo na abertura, busca de cidades e sugestões
+  para caminhada.
+
+A feature de clima usa `Follow` para escopo e descarte do cliente HTTP, repositório
+e BLoCs. Os bindings usam `Token<T>()`, com leitura por tipo via
+`read<T>()` nos construtores e `context.follow.read<T>()` no shell.
+`CitySearchBloc` controla busca com debounce e `ForecastBloc` controla
+carregamento, troca de cidade e atualização. A interface recebe esses BLoCs via
+`BlocProvider.value`. O aplicativo consulta a [Open-Meteo](https://open-meteo.com/)
+para geocodificação e previsão, sem chave de API. Requer internet.
+
+As sugestões analisam as próximas 24 horas no horário da cidade e mostram até
+três períodos diurnos com 16–28 °C, chuva abaixo de 30% e vento abaixo de
+20 km/h. A ordem prioriza menor chance de chuva, temperatura perto de 22 °C,
+menos vento e horário mais próximo. São sugestões baseadas em previsão, não
+alertas meteorológicos.

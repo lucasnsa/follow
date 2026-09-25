@@ -8,11 +8,17 @@ Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.tap(finder);
 }
 
+Future<void> openPlayground(WidgetTester tester) async {
+  await tapVisible(tester, find.text('Follow Playground'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('login guard, catalog readiness, lazy report and back',
       (tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
+    await openPlayground(tester);
     await tapVisible(tester, find.text('Abrir produtos'));
     await tester.pumpAndSettle();
     expect(find.text('Área protegida'), findsOneWidget);
@@ -45,6 +51,7 @@ void main() {
   testWidgets('404 uses custom builder and recovers to home', (tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
+    await openPlayground(tester);
     await tapVisible(tester, find.text('Explorar recursos'));
     await tester.pumpAndSettle();
     await tapVisible(tester, find.text('Abrir rota inválida'));
@@ -53,12 +60,15 @@ void main() {
     expect(find.textContaining('/rota-que-nao-existe'), findsOneWidget);
     await tapVisible(tester, find.text('Ir ao início'));
     await tester.pumpAndSettle();
+    expect(find.text('Escolha o que explorar.'), findsOneWidget);
+    await openPlayground(tester);
     expect(find.text('Modularização que acompanha a árvore'), findsOneWidget);
   });
 
   testWidgets('denied and error guards keep explore mounted', (tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
+    await openPlayground(tester);
     await tapVisible(tester, find.text('Explorar recursos'));
     await tester.pumpAndSettle();
     await tapVisible(tester, find.text('Executar guard'));
@@ -77,6 +87,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle();
+    await openPlayground(tester);
     await tapVisible(tester, find.text('Explorar recursos'));
     await tester.pumpAndSettle();
     await tapVisible(tester, find.text('Abrir prévia'));
@@ -93,6 +104,21 @@ void main() {
     expect(find.text('Erro capturado'), findsOneWidget);
   });
 
+  testWidgets('selection opens weather and returns to examples',
+      (tester) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    expect(find.text('Follow Playground'), findsOneWidget);
+    expect(find.text('Clima & Planos'), findsOneWidget);
+    await tapVisible(tester, find.text('Clima & Planos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Onde você quer planejar?'), findsOneWidget);
+    await tapVisible(tester, find.text('Trocar exemplo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Escolha o que explorar.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('mobile and desktop layouts do not overflow', (tester) async {
     var iteration = 0;
     for (final size in [const Size(390, 844), const Size(1280, 900)]) {
@@ -100,6 +126,7 @@ void main() {
       await tester.pumpWidget(
           KeyedSubtree(key: ValueKey(iteration++), child: const MyApp()));
       await tester.pumpAndSettle();
+      await openPlayground(tester);
       // Flutter's test binding fails this test automatically on layout errors.
       await tester.pumpWidget(const SizedBox());
     }

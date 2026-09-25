@@ -1,6 +1,8 @@
 import 'package:follow/follow.dart';
 
 final homeRoute = StaticRouteSpec('/');
+final playgroundRoute = StaticRouteSpec('/playground');
+final weatherRoute = StaticRouteSpec('/weather');
 final exploreRoute = StaticRouteSpec('/explore');
 final deniedDemoRoute = StaticRouteSpec('/demo/denied');
 final errorDemoRoute = StaticRouteSpec('/demo/error');

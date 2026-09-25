@@ -146,7 +146,7 @@ RouteLocation _locationFor(String location) {
   if (segments.length == 1 && segments.first == 'products') {
     return productsListRoute.location(uri.queryParameters['sort']);
   }
-  return homeRoute.location;
+  return playgroundRoute.location;
 }
 
 class _LoginPageState extends State<LoginPage> {

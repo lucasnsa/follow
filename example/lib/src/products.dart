@@ -117,7 +117,7 @@ class ProductsShell extends StatelessWidget {
             onPressed: () async {
               final didPop = await context.follow.pop();
               if (!didPop && context.mounted) {
-                await context.follow.go(homeRoute.location);
+                await context.follow.go(playgroundRoute.location);
               }
             },
             icon: const Icon(Icons.arrow_back_rounded),

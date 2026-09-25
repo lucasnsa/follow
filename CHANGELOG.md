@@ -1,3 +1,12 @@
+## Unreleased
+
+* Add unnamed `Token<T>()` keys for default dependencies resolved by exact type.
+* Allow omitting the token in `read<T>()`, `readAsync<T>()`, `watch<T>()`,
+  `Read.call<T>()`, and `Read.async<T>()`, preserving named-token identity.
+* Demonstrate typed reads and unnamed registrations in the weather example.
+* Compatibility: custom implementations of `Read` must update `call` and `async`
+  to accept an optional positional `Token<T>?` argument (`[Token<T>? token]`).
+
 ## 0.4.0
 
 * Replace inheritance-based `Module` declarations with immutable `Feature`
