@@ -1,11 +1,26 @@
-## Unreleased
+## 0.5.0
 
+* Breaking: rename the Feature shell callback to builder, FeatureShell callback
+  type to FeatureBuilder, and buildShell to buildContent.
+* Add FeatureShell.indexedStack and typed FeatureBranch.mount declarations with
+  lazy, persistent branch navigators and isolated dependency scopes.
+* Add FollowShellController and context.follow.shell for selection and reset.
+* Support nested shells, transactional guards, deep links and independent stacks.
+* Write version 2 navigation-tree history snapshots; keep reading version 1.
 * Add unnamed `Token<T>()` keys for default dependencies resolved by exact type.
 * Allow omitting the token in `read<T>()`, `readAsync<T>()`, `watch<T>()`,
   `Read.call<T>()`, and `Read.async<T>()`, preserving named-token identity.
 * Demonstrate typed reads and unnamed registrations in the weather example.
 * Compatibility: custom implementations of `Read` must update `call` and `async`
   to accept an optional positional `Token<T>?` argument (`[Token<T>? token]`).
+* Add FollowTransition presets and custom Flutter transition builders, with
+  app and feature defaults plus per-route overrides.
+* Add FeatureShell.animated and BranchTransition for retained branch animations.
+* Coordinate transitions with guards, history restoration, and reduced-motion
+  settings; keep exiting feature scopes alive until their page animation finishes.
+* Isolate Hero controllers per navigator.
+* Expand the example with independent stacks, retained form and scroll state,
+  and optional animations-package transitions without adding a Follow dependency.
 
 ## 0.4.0
 

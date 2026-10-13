@@ -1,10 +1,11 @@
 part of '../follow.dart';
 
-enum _Operation { push, replace, go }
+enum _Operation { push, replace, go, resume }
 
 class _FollowRouter extends ChangeNotifier {
   _FollowRouter(
       {String? initialLocation,
+      this.pageTransition = const FollowTransition.none(),
       RouteInformationProvider? routeInformationProvider,
       WidgetBuilder? loadingBuilder,
       FollowRouteBuilder? notFoundBuilder,
@@ -36,6 +37,7 @@ class _FollowRouter extends ChangeNotifier {
     );
   }
 
+  final FollowTransition pageTransition;
   final WidgetBuilder loadingBuilder;
   final FollowRouteBuilder notFoundBuilder;
   final FollowRouteBuilder deniedBuilder;
@@ -69,8 +71,38 @@ class _FollowRouter extends ChangeNotifier {
   Future<void> go(RouteLocation location) =>
       _navigate(location.uri, _Operation.go);
 
+  Future<void> _goBranch(_FeatureNode node, int index,
+      {required bool reset}) async {
+    if (index == node.activeIndex && !reset && node.activeEntry?.node != null) {
+      _transaction?.cancel();
+      _transaction = null;
+      _isNavigating = false;
+      _changed();
+      return;
+    }
+    final branch = node.definition.feature.shell!.branches[index];
+    final entry =
+        node.pages.where((e) => node.branchIndex(e) == index).firstOrNull;
+    final uri = !reset && entry?.node != null
+        ? _visibleUri(entry!.node!)
+        : branch.initialLocation.uri;
+    await _navigate(uri, _Operation.resume,
+        reportReplace: false, resetShell: reset ? node : null);
+  }
+
   void _attach(_FeatureNode node) {
     if (_disposed) throw StateError('FollowRouter has been disposed');
+    // Root routing can start before the delegate has built its outlet.
+    node.presented.future.ignore();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (node.presented.isCompleted) return;
+      if (node.outlet == null || (node.isShell && node.shellOutlet == null)) {
+        node.presented.completeError(StateError(
+            'Feature ${node.definition.feature.name} builder must include its outlet exactly once'));
+      } else {
+        node.presented.complete();
+      }
+    });
     if (node.entry == null) {
       if (_root != null && _root != node && _root!.mounted) {
         throw StateError('A router has only one root module');
@@ -90,9 +122,9 @@ class _FollowRouter extends ChangeNotifier {
       if (entry.attached.isCompleted) _refreshAfterMount();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (entry.attached.isCompleted) return;
-        if (node.outlet == null) {
+        if (node.outlet == null || (node.isShell && node.shellOutlet == null)) {
           entry.attached.completeError(StateError(
-              'FeatureRoute ${entry.route!.path} shell must include its outlet'));
+              'FeatureRoute ${entry.route!.path} builder must include its outlet'));
         } else {
           entry.attached.complete(node);
         }
@@ -122,7 +154,8 @@ class _FollowRouter extends ChangeNotifier {
           _containsDeadNode(_root!)) {
         bool visibleDead(_FeatureNode current) {
           if (current.pages.isEmpty) return false;
-          final top = current.pages.last;
+          final top = current.activeEntry;
+          if (top == null) return false;
           return top.route is _MountedFeatureRoute &&
               (top.node?.mounted != true || visibleDead(top.node!));
         }
@@ -165,10 +198,14 @@ class _FollowRouter extends ChangeNotifier {
   }
 
   Future<void> _navigate(Uri requested, _Operation operation,
-      {FollowNavigationState? restore}) async {
+      {FollowNavigationState? restore,
+      bool? reportReplace,
+      _FeatureNode? resetShell}) async {
     if (_disposed) throw StateError('FollowRouter has been disposed');
     _transaction?.cancel();
-    final tx = _Transaction(this);
+    final tx = _Transaction(this)
+      ..resetShell = resetShell
+      ..animate = restore == null && _configuration != null;
     _transaction = tx;
     _isNavigating = true;
     _error = null;
@@ -188,14 +225,54 @@ class _FollowRouter extends ChangeNotifier {
           if (restore != null &&
               restore._locations.isNotEmpty &&
               redirects == 0) {
-            var first = true;
-            for (final location in restore._locations) {
-              final target = _uri(location['uri']! as String, '/');
-              final ids = (location['ids']! as List).cast<int>();
-              await _resolve(root, target, _segments(target.path), 0, {},
-                  first ? _Operation.go : _Operation.push, tx,
-                  ids: ids);
-              first = false;
+            try {
+              final rejected = <int>{};
+              var first = true;
+              for (final location in restore._locations) {
+                final target = _uri(location['uri']! as String, '/');
+                final ids = (location['ids']! as List).cast<int>();
+                if (ids.any(rejected.contains)) continue;
+                try {
+                  await _resolve(root, target, _segments(target.path), 0, {},
+                      first ? _Operation.go : _Operation.push, tx,
+                      ids: ids);
+                } on _DeniedNavigation {
+                  final inactive = location['inactive'] as int?;
+                  if (inactive == null) rethrow;
+                  rejected.add(inactive);
+                } on _RedirectNavigation {
+                  final inactive = location['inactive'] as int?;
+                  if (inactive == null) rethrow;
+                  rejected.add(inactive);
+                }
+                first = false;
+              }
+              for (final node in tx.restoringNodes) {
+                final index = restore._selections[node.entry?.id ?? -1];
+                if (index != null && node.isShell) {
+                  if (index >= node.definition.routes.length ||
+                      !tx
+                          .pages(node)
+                          .any((e) => node.branchIndex(e) == index)) {
+                    throw const FormatException('Invalid restored branch');
+                  }
+                  tx.selections[node] = index;
+                }
+              }
+              if (rejected.isNotEmpty) {
+                for (final node in tx.drafts.keys.toList()) {
+                  tx.drafts[node] = tx.drafts[node]!
+                      .where((entry) => !rejected.contains(entry.id))
+                      .toList();
+                }
+              }
+              if (_visibleUri(root, tx) != uri) {
+                throw const FormatException('Restored tree does not match URI');
+              }
+            } on FormatException {
+              tx.clearDraft();
+              await _resolve(
+                  root, uri, _segments(uri.path), 0, {}, _Operation.go, tx);
             }
           } else {
             await _resolve(
@@ -203,7 +280,12 @@ class _FollowRouter extends ChangeNotifier {
           }
           tx.check();
           tx.commit();
-          _publish(uri, restore != null || operation != _Operation.push);
+          _publish(
+              _visibleUri(root),
+              reportReplace ??
+                  (restore != null ||
+                      (operation != _Operation.push &&
+                          operation != _Operation.resume)));
           break;
         } on _RedirectNavigation catch (redirect) {
           tx.clearDraft();
@@ -254,8 +336,19 @@ class _FollowRouter extends ChangeNotifier {
       {List<int> ids = const [],
       int depth = 0}) async {
     tx.check();
+    await tx.wait(node.presented.future);
+    tx.check();
     if (!node.mounted) throw _NotFoundNavigation();
     if (ids.isNotEmpty && tx.restoringNodes.add(node)) tx.drafts[node] = [];
+    if (node.isShell && offset == segments.length) {
+      throw _RedirectNavigation(node
+          .definition
+          .feature
+          .shell!
+          .branches[node.definition.feature.shell!.initialIndex]
+          .initialLocation
+          .uri);
+    }
     final match = _match(node, segments, offset);
     if (match == null) throw _NotFoundNavigation();
     final params = {...inherited, ...match.params};
@@ -291,10 +384,21 @@ class _FollowRouter extends ChangeNotifier {
       entry = stack.where(matches).firstOrNull ??
           node.pages.where(matches).firstOrNull;
     } else if (match.route is _MountedFeatureRoute && stack.isNotEmpty) {
-      final top = stack.last;
-      if (identical(top.route, match.route) &&
+      final top = node.isShell
+          ? stack.where((e) => identical(e.route, match.route)).firstOrNull
+          : stack.last;
+      if (top != null &&
+          identical(top.route, match.route) &&
           top.base == base &&
           top.node?.mounted == true &&
+          top.arguments == arguments) {
+        entry = top;
+      }
+    }
+    if (entry == null && operation == _Operation.resume && stack.isNotEmpty) {
+      final top = stack.last;
+      if (identical(top.route, match.route) &&
+          top.data.uri == uri &&
           top.arguments == arguments) {
         entry = top;
       }
@@ -310,7 +414,14 @@ class _FollowRouter extends ChangeNotifier {
     );
     tx.data[entry] = data;
     tx.arguments[entry] = arguments;
-    if (operation == _Operation.go) {
+    if (node.isShell) {
+      tx.selections[node] = node.definition.routes.indexOf(match.route);
+      tx.drafts[node] = [
+        for (final old in stack)
+          if (old.route != null && !identical(old.route, match.route)) old,
+        entry,
+      ];
+    } else if (operation == _Operation.go) {
       tx.drafts[node] = [entry];
     } else if (!stack.contains(entry)) {
       tx.drafts[node] = [
@@ -322,6 +433,10 @@ class _FollowRouter extends ChangeNotifier {
     }
     if (match.route is _MountedFeatureRoute) {
       if (entry.node?.mounted != true) {
+        if (node.isShell && node.shellOutlet == null) {
+          throw StateError(
+              'A shell builder must include its outlet exactly once');
+        }
         node.staging.add(entry);
         tx.staged.add(entry);
         // Observe mount failures before requesting the frame that mounts it.
@@ -330,7 +445,8 @@ class _FollowRouter extends ChangeNotifier {
         await attached;
       }
       tx.check();
-      await _resolve(entry.node!, uri, segments, end, params, operation, tx,
+      await _resolve(entry.node!, uri, segments, end, params,
+          identical(tx.resetShell, node) ? _Operation.go : operation, tx,
           ids: ids, depth: depth + 1);
     }
   }
@@ -346,25 +462,34 @@ class _FollowRouter extends ChangeNotifier {
       '/',
       fallback: builder,
     );
+    root.animatePages = false;
+    root.animateBranches = false;
+    root.presentationSerial++;
     root.pages = replace ? [entry] : [...root.pages, entry];
     _publish(uri, replace);
   }
 
   void _publish(Uri uri, bool replace) {
-    final locations = <Map<String, Object?>>[];
-    void visit(_FeatureNode node, List<int> ancestors) {
-      for (final entry in node.pages) {
-        final ids = [...ancestors, entry.id];
-        if (entry.route is _MountedFeatureRoute && entry.node != null) {
-          visit(entry.node!, ids);
-        } else {
-          locations.add({'uri': entry.data.uri.toString(), 'ids': ids});
-        }
-      }
-    }
-
-    if (_root != null) visit(_root!, []);
-    _configuration = FollowNavigationState._(uri, locations);
+    Map<String, Object?> snapshot(_FeatureNode node) => {
+          'kind': node.isShell && node.activeEntry?.fallback == null
+              ? 'shell'
+              : 'stack',
+          if (node.isShell && node.activeEntry?.fallback == null)
+            'active': node.activeIndex,
+          'pages': [
+            for (final entry in node.activeEntry?.fallback != null
+                ? [node.activeEntry!]
+                : node.pages)
+              {
+                'id': entry.id,
+                'uri': entry.data.uri.toString(),
+                if (node.isShell) 'branch': node.branchIndex(entry),
+                if (entry.node != null) 'child': snapshot(entry.node!),
+              },
+          ],
+        };
+    _configuration = FollowNavigationState._(
+        uri, const [], const {}, _root == null ? null : snapshot(_root!));
     _reporting = replace
         ? RouteInformationReportingType.neglect
         : RouteInformationReportingType.navigate;
@@ -379,11 +504,18 @@ class _FollowRouter extends ChangeNotifier {
     final root = _root;
     if (root == null || root.pages.isEmpty) return false;
     bool remove(_FeatureNode node) {
-      final top = node.pages.last;
+      final top = node.activeEntry;
+      if (top == null) return false;
       if (top.node != null && top.node!.pages.isNotEmpty && remove(top.node!)) {
         return true;
       }
-      if (node.pages.length <= 1) return false;
+      if ((node.isShell && top.fallback == null) || node.pages.length <= 1) {
+        return false;
+      }
+      _settleAncestorShells(node);
+      node.previousTopId = top.id;
+      node.animatePages = top.fallback == null;
+      node.presentationSerial++;
       node.pages = node.pages.sublist(0, node.pages.length - 1);
       return true;
     }
@@ -394,15 +526,34 @@ class _FollowRouter extends ChangeNotifier {
     return didPop;
   }
 
-  Uri _visibleUri(_FeatureNode node) {
-    final top = node.pages.last;
-    return top.node != null && top.node!.pages.isNotEmpty
-        ? _visibleUri(top.node!)
-        : top.data.uri;
+  Uri _visibleUri(_FeatureNode node, [_Transaction? tx]) {
+    final pages = tx?.pages(node) ?? node.pages;
+    final index = tx?.selections[node] ?? node.activeIndex;
+    final top = pages.lastOrNull?.fallback != null || !node.isShell
+        ? pages.lastOrNull
+        : pages.where((e) => node.branchIndex(e) == index).firstOrNull;
+    if (top == null) return Uri.parse(node.base);
+    final childPages =
+        top.node == null ? null : tx?.pages(top.node!) ?? top.node!.pages;
+    return childPages?.isNotEmpty == true
+        ? _visibleUri(top.node!, tx)
+        : (tx?.data[top] ?? top.data).uri;
+  }
+
+  void _settleAncestorShells(_FeatureNode node) {
+    for (var parent = node.entry?.owner;
+        parent != null;
+        parent = parent.entry?.owner) {
+      if (parent.isShell) {
+        parent.animateBranches = false;
+        parent.presentationSerial++;
+      }
+    }
   }
 
   void _removed(_FeatureNode node, _RouteEntry entry) {
     if (_disposed || !node.pages.contains(entry)) return;
+    _settleAncestorShells(node);
     node.pages = node.pages.where((e) => e != entry).toList();
     if (_root != null && _root!.pages.isNotEmpty) {
       _publish(_visibleUri(_root!), true);

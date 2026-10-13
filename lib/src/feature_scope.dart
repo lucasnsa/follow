@@ -57,7 +57,7 @@ class _FeatureHostState extends State<_FeatureHost> {
   int generation = 0;
   _FeatureNode? routeNode;
   bool failedMount = false;
-  Widget? routedShell;
+  Widget? routedContent;
 
   @override
   void didChangeDependencies() {
@@ -86,7 +86,7 @@ class _FeatureHostState extends State<_FeatureHost> {
             widget.router == null &&
             definition.routes.isNotEmpty) {
           throw StateError(
-            'FeatureScope only accepts features without routes; '
+            'FeatureScope only accepts features without routes or shells; '
             'use FollowApp or FeatureRoute.mount',
           );
         }
@@ -120,14 +120,14 @@ class _FeatureHostState extends State<_FeatureHost> {
     if (failedMount) return const SizedBox.shrink();
     Widget child;
     if (widget.routed) {
-      child = routedShell ??= Builder(
+      child = routedContent ??= Builder(
         builder: (context) =>
-            definition.feature.buildShell(context, const _FeatureOutlet()),
+            definition.feature.buildContent(context, const _FeatureOutlet()),
       );
     } else if (widget.scopeChild != null) {
       child = Builder(
         builder: (context) =>
-            definition.feature.buildShell(context, widget.scopeChild!),
+            definition.feature.buildContent(context, widget.scopeChild!),
       );
     } else {
       child = Builder(builder: widget.contentBuilder!);

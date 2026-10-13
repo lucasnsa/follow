@@ -12,9 +12,9 @@ Feature feature({
   String name = 'test',
   List<BindingDeclaration> bindings = const [],
   List<FeatureRoute> routes = const [],
-  FeatureShell? shell,
+  FeatureBuilder? builder,
 }) =>
-    Feature(name: name, bindings: bindings, routes: routes, shell: shell);
+    Feature(name: name, bindings: bindings, routes: routes, builder: builder);
 
 DataRouteSpec<String> parameterRoute(String path, String parameter) =>
     DataRouteSpec<String>(
@@ -91,7 +91,7 @@ void main() {
         FeatureRoute.page(a, builder: (_, __) => const Text('A')),
         FeatureRoute.page(b, builder: (_, __) => const Text('B')),
       ],
-      shell: (context, outlet) {
+      builder: (context, outlet) {
         navigation = context.follow;
         return outlet;
       },
@@ -111,7 +111,7 @@ void main() {
     expect(await navigation.pop(), isFalse);
   });
 
-  testWidgets('deep link mounts feature chain, shell and scoped dependencies',
+  testWidgets('deep link mounts feature chain, builder and scoped dependencies',
       (tester) async {
     var creations = 0;
     var disposals = 0;
@@ -143,10 +143,10 @@ void main() {
           return Text('${args.id}:${args.sort}');
         }),
       ],
-      shell: (_, outlet) {
+      builder: (_, outlet) {
         shellBuilds++;
         return Column(children: [
-          const Text('products shell'),
+          const Text('products builder'),
           Expanded(child: outlet),
         ]);
       },
@@ -160,7 +160,7 @@ void main() {
         .pumpWidget(app(root, initialLocation: '/products/42?sort=new'));
     await tester.pumpAndSettle();
     expect(find.text('42:new'), findsOneWidget);
-    expect(find.text('products shell'), findsOneWidget);
+    expect(find.text('products builder'), findsOneWidget);
     expect(creations, 1);
     expect(shellBuilds, 1);
     final first = productContext.read(counterToken);
@@ -188,10 +188,10 @@ void main() {
     ]);
     final shop = feature(
       routes: [FeatureRoute.mount(ordersRoot, feature: (_) => orders)],
-      shell: (_, outlet) {
+      builder: (_, outlet) {
         shopShellBuilds++;
         return Column(children: [
-          const Text('shop shell'),
+          const Text('shop builder'),
           Expanded(child: outlet),
         ]);
       },
@@ -410,7 +410,7 @@ void main() {
         FeatureRoute.page(other, builder: (_, __) => const Text('other')),
         FeatureRoute.mount(childRoot, feature: (_) => child),
       ],
-      shell: (context, outlet) {
+      builder: (context, outlet) {
         navigation = context.follow;
         return outlet;
       },
@@ -471,7 +471,7 @@ void main() {
         FeatureRoute.page(home, builder: (_, __) => const Text('home')),
         FeatureRoute.mount(childRoot, feature: (_) => child),
       ],
-      shell: (context, outlet) {
+      builder: (context, outlet) {
         navigation = context.follow;
         return outlet;
       },
@@ -517,7 +517,7 @@ void main() {
         FeatureRoute.page(fast, builder: (_, __) => const Text('fast')),
         FeatureRoute.mount(slowRoot, feature: (_) => slow),
       ],
-      shell: (context, outlet) {
+      builder: (context, outlet) {
         navigation = context.follow;
         return outlet;
       },
@@ -549,7 +549,7 @@ void main() {
           builder: (_, __) => const Text('loop'),
         ),
       ],
-      shell: (context, outlet) {
+      builder: (context, outlet) {
         navigation = context.follow;
         return outlet;
       },
@@ -597,7 +597,7 @@ void main() {
           builder: (_, __) => const Text('never'),
         ),
       ],
-      shell: (_, __) => const SizedBox(),
+      builder: (_, __) => const SizedBox(),
     );
     final root = feature(routes: [
       FeatureRoute.mount(brokenRoot, feature: (_) => withoutOutlet),

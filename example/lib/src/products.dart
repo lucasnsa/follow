@@ -98,7 +98,7 @@ final productsFeature = Feature(
       builder: (_, arguments) => ProductDetails(id: arguments.id),
     ),
   ],
-  shell: (_, outlet) => ProductsShell(outlet: outlet),
+  builder: (_, outlet) => ProductsShell(outlet: outlet),
 );
 
 class ProductsShell extends StatelessWidget {

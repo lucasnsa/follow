@@ -22,13 +22,13 @@ final bToken = Token<B>('b');
 Feature feature({
   String name = 'test',
   List<BindingDeclaration> bindings = const [],
-  FeatureShell? shell,
+  FeatureBuilder? builder,
   Map<String, Object?> diagnostics = const {},
 }) =>
     Feature(
       name: name,
       bindings: bindings,
-      shell: shell,
+      builder: builder,
       diagnostics: diagnostics,
     );
 
@@ -250,17 +250,17 @@ void main() {
     expect(disposed, ['original']);
   });
 
-  testWidgets('feature shell wraps a manual subtree', (tester) async {
+  testWidgets('feature builder wraps a manual subtree', (tester) async {
     await tester.pumpWidget(FeatureScope(
       feature: feature(
-        shell: (_, child) => Directionality(
+        builder: (_, child) => Directionality(
           textDirection: TextDirection.ltr,
-          child: Column(children: [const Text('shell'), child]),
+          child: Column(children: [const Text('builder'), child]),
         ),
       ),
       child: const Text('content'),
     ));
-    expect(find.text('shell'), findsOneWidget);
+    expect(find.text('builder'), findsOneWidget);
     expect(find.text('content'), findsOneWidget);
   });
 

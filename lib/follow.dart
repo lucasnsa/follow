@@ -9,6 +9,8 @@ part 'src/inject.dart';
 part 'src/feature_access.dart';
 part 'src/binding_entry.dart';
 part 'src/feature.dart';
+part 'src/shell.dart';
+part 'src/transitions.dart';
 part 'src/feature_scope.dart';
 part 'src/routes.dart';
 part 'src/route_path.dart';

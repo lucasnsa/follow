@@ -2,7 +2,7 @@ part of '../follow.dart';
 
 typedef FollowRouteBuilder = Widget Function(BuildContext, RouteData);
 typedef FollowErrorBuilder = Widget Function(BuildContext, Object, StackTrace);
-typedef FeatureShell = Widget Function(BuildContext, Widget outlet);
+typedef FeatureBuilder = Widget Function(BuildContext, Widget outlet);
 typedef RouteEncoding = ({
   Map<String, String> path,
   Map<String, String> query,
@@ -93,10 +93,11 @@ final class DataRouteSpec<A> extends RouteSpec<A> {
 
 /// One page or nested feature in a [Feature] route table.
 sealed class FeatureRoute {
-  FeatureRoute._(this.spec, List<_FeatureGuard> guards)
+  FeatureRoute._(this.spec, List<_FeatureGuard> guards, this.transition)
       : _guards = List.unmodifiable(guards);
 
   final RouteSpec<Object?> spec;
+  final FollowTransition? transition;
   final List<_FeatureGuard> _guards;
   int get guardCount => _guards.length;
   String get path => spec.path;
@@ -107,15 +108,17 @@ sealed class FeatureRoute {
     RouteSpec<A> spec, {
     required Widget Function(BuildContext context, A arguments) builder,
     List<FeatureGuard<A>> guards = const [],
+    FollowTransition? transition,
   }) =>
-      _PageFeatureRoute<A>(spec, builder, guards);
+      _PageFeatureRoute<A>(spec, builder, guards, transition);
 
   static FeatureRoute mount<A>(
     RouteSpec<A> spec, {
     required Feature Function(A arguments) feature,
     List<FeatureGuard<A>> guards = const [],
+    FollowTransition? transition,
   }) =>
-      _MountedFeatureRoute<A>(spec, feature, guards);
+      _MountedFeatureRoute<A>(spec, feature, guards, transition);
 }
 
 typedef _FeatureGuard = FutureOr<GuardResult> Function(Object?, Read);
@@ -124,13 +127,15 @@ final class _PageFeatureRoute<A> extends FeatureRoute {
   _PageFeatureRoute(
     RouteSpec<A> spec,
     this.builder,
-    List<FeatureGuard<A>> guards,
-  )   : typedSpec = spec,
+    List<FeatureGuard<A>> guards, [
+    FollowTransition? transition,
+  ])  : typedSpec = spec,
         super._(
           spec as RouteSpec<Object?>,
           [
             for (final guard in guards) (value, read) => guard(value as A, read)
           ],
+          transition,
         );
 
   final RouteSpec<A> typedSpec;
@@ -144,13 +149,15 @@ final class _MountedFeatureRoute<A> extends FeatureRoute {
   _MountedFeatureRoute(
     RouteSpec<A> spec,
     this.create,
-    List<FeatureGuard<A>> guards,
-  )   : typedSpec = spec,
+    List<FeatureGuard<A>> guards, [
+    FollowTransition? transition,
+  ])  : typedSpec = spec,
         super._(
           spec as RouteSpec<Object?>,
           [
             for (final guard in guards) (value, read) => guard(value as A, read)
           ],
+          transition,
         );
 
   final RouteSpec<A> typedSpec;

@@ -1,12 +1,12 @@
 # Follow
 
-Features imutáveis, rotas tipadas e dependências com ciclo de vida ligado à
-árvore de widgets. Não há container global nem dependências externas.
+Immutable features, typed routes, and dependencies whose lifetimes follow the
+widget tree. No global container or external package dependencies.
 
-## Aplicação
+## Application
 
-Uma `Feature` é somente a descrição de bindings, rotas e shell. O estado vivo é
-criado quando ela entra na árvore:
+A `Feature` describes bindings, navigation, and UI composition. Its live state is
+created when it enters the widget tree:
 
 ```dart
 final api = Token<Api>('api');
@@ -36,12 +36,12 @@ void main() {
 }
 ```
 
-`FollowApp` possui o router e o escopo raiz. Trocar sua `Key` recria ambos.
+`FollowApp` owns the router and root scope. Changing its `Key` recreates both.
 
-## Dependências por token
+## Token-scoped dependencies
 
-`Token<T>()` registra a dependência padrão do tipo exato `T`. Você pode lê-la
-pelo tipo, sem guardar a instância do token:
+`Token<T>()` registers the default dependency for the exact type `T`. You can
+read it by type without keeping the token instance:
 
 ```dart
 Bind.singleton(Token<Api>(), (_) => Api());
@@ -53,14 +53,14 @@ final report = await context.follow.readAsync<Report>();
 final state = context.follow.watch<Report>();
 ```
 
-Tokens sem nome do mesmo tipo são equivalentes. Cada Feature aceita apenas um
-registro padrão por tipo; uma filha pode sobrescrever o padrão do ancestral.
-A busca usa o tipo exato registrado: `Token<List<int>>()` difere de
-`Token<List<num>>()`, e registrar uma implementação não registra sua interface.
-Informe o tipo explicitamente ou use um contexto que permita inferi-lo.
+Unnamed tokens of the same type are equivalent. A feature accepts only one
+default binding per type; a child may override an ancestor's default binding.
+Lookup uses the exact registered type: `Token<List<int>>()` differs from
+`Token<List<num>>()`, and registering an implementation does not register its
+interface. Specify the type explicitly or use a context that can infer it.
 
-Tokens nomeados mantêm identidade própria e permitem várias dependências do
-mesmo tipo, inclusive junto com um registro padrão:
+Named tokens have their own identity and allow multiple dependencies of the
+same type, alongside a default binding:
 
 ```dart
 final primaryApi = Token<Api>('primary-api');
@@ -74,31 +74,31 @@ final defaultApi = context.follow.read<Api>();
 final primary = context.follow.read(primaryApi);
 ```
 
-Nomes são rótulos de diagnóstico: reutilize a mesma instância de um token
-nomeado. Mesmo dois tokens com o mesmo nome são distintos. `read<Api>()`
-procura apenas o registro padrão; não escolhe automaticamente um nomeado,
-mesmo que seja o único disponível.
+Names are diagnostic labels: reuse the same named token instance. Two tokens
+with the same name are still distinct. `read<Api>()` looks only for the default
+binding; it does not automatically choose a named one, even if it is the only
+binding available.
 
-`Bind` oferece quatro declarações:
+`Bind` provides four declarations:
 
-| Declaração | Comportamento |
+| Declaration | Behavior |
 | --- | --- |
-| `Bind.value` | valor existente e opcionalmente descartável |
-| `Bind.factory` | nova instância em cada leitura |
-| `Bind.singleton` | singleton `eager` ou `lazy` |
-| `Bind.async` | singleton async `blocking`, `background` ou `lazy` |
+| `Bind.value` | Existing value, optionally disposable |
+| `Bind.factory` | New instance on every read |
+| `Bind.singleton` | Eager or lazy singleton |
+| `Bind.async` | Blocking, background, or lazy async singleton |
 
-Factories recebem `Read`, que pode ser chamado como função ou assincronamente:
+Factories receive `Read`, which supports synchronous and asynchronous access:
 
 ```dart
 Bind.singleton(repository, (read) => Repository(read(primaryApi)));
 Bind.async(report, (read) async => Report(await read.async(repository)));
 ```
 
-A busca começa na Feature atual e continua pelos ancestrais. Uma Feature filha
-pode sobrescrever um token; escopos irmãos continuam isolados.
+Lookup starts in the current feature and continues through its ancestors. A
+child feature can override a token; sibling scopes remain isolated.
 
-Dentro de widgets:
+Inside widgets:
 
 ```dart
 final api = context.follow.read(primaryApi);
@@ -111,45 +111,46 @@ switch (context.follow.watch(reportToken)) {
   case DependencyReady(:final value):
     return Text(value.title);
   case DependencyFailed(:final error):
-    return Text('Erro: $error');
+    return Text('Error: $error');
 }
 ```
 
-`watch` ativa singletons lazy e reconstrói o widget nas transições. Factories
-devem ser acessadas com `read` e não podem ser observadas.
+`watch` activates lazy singletons and rebuilds the widget when their state
+changes. Factories must be accessed with `read` and cannot be watched.
 
-## Estado e ciclo de vida
+## State and lifecycle
 
-`context.follow.featureState` é uma união selada e observa a cadeia ativa:
+`context.follow.featureState` is a sealed union that observes the active
+feature chain:
 
 ```dart
 switch (context.follow.featureState) {
   case FeatureInitializing(:final pending):
-    return Text('Aguardando ${pending.length} dependências');
+    return Text('Waiting for ${pending.length} dependencies');
   case FeatureReady():
     return const Content();
   case FeatureFailed(:final error):
-    return Text('Falhou: $error');
+    return Text('Failed: $error');
 }
 ```
 
-`AsyncPolicy.blocking` participa desse estado; `background` inicia ao montar sem
-bloquear a Feature; `lazy` inicia no primeiro `watch` ou `readAsync`. O getter
-`ready` permite aguardar toda a cadeia bloqueante.
+`AsyncPolicy.blocking` contributes to this state. `background` starts when the
+feature mounts without blocking it; `lazy` starts on the first `watch` or
+`readAsync`. Use the `ready` getter to wait for the entire blocking chain.
 
-Instâncias são descartadas uma vez, em ordem inversa de criação. Resultados
-assíncronos concluídos depois do unmount também são descartados.
+Instances are disposed once, in reverse creation order. Async results that
+complete after unmount are disposed too.
 
-Para montar uma Feature sem rotas em qualquer subtree:
+To mount a feature without routes in any subtree:
 
 ```dart
 FeatureScope(feature: checkoutFeature, child: const CheckoutPanel())
 ```
 
-## Rotas tipadas
+## Typed routes
 
-Rotas possuem caminhos absolutos. Uma rota dinâmica decodifica deep links e
-codifica argumentos de navegação, normalmente usando records:
+Routes use absolute paths. A dynamic route decodes deep links and encodes
+navigation arguments, typically using records:
 
 ```dart
 final productRoute = DataRouteSpec<({String id, String? sort})>(
@@ -172,11 +173,11 @@ final productsFeature = Feature(
       builder: (_, args) => ProductPage(id: args.id, sort: args.sort),
     ),
   ],
-  shell: (_, outlet) => ProductsShell(outlet: outlet),
+  builder: (_, child) => ProductsShell(outlet: child),
 );
 ```
 
-Navegação não aceita strings livres:
+Navigation does not accept arbitrary strings:
 
 ```dart
 await context.follow.push(
@@ -186,12 +187,199 @@ await context.follow.go(homeRoute.location);
 await context.follow.pop();
 ```
 
-`StaticRouteSpec` representa rotas sem argumentos. `RouteData.of(context)` ou
-`context.follow.route` expõe a URI, parâmetros crus e query. Deep links externos
-são decodificados pelas mesmas specs, e o estado serializado restaura as pilhas
-do navegador.
+`StaticRouteSpec` represents routes without arguments. `RouteData.of(context)`
+and `context.follow.route` expose the URI, raw path parameters, and query
+parameters. External deep links are decoded by the same specs, and serialized
+state restores navigation stacks.
 
-## Guards e fallbacks
+## Builders and shells with independent stacks
+
+`Feature.builder` wraps feature content inside its dependency scope. Use it
+for layouts and providers. In a `FeatureScope` it receives the `child`; in a
+routed feature it receives the navigation outlet.
+
+`Feature.shell` declares branches with independent navigation. Each branch is
+a feature mounted on first visit, with its own `Navigator`, widget state, and
+bindings. Declare either `routes` or `shell` on a feature; both support
+`builder` and bindings.
+
+```dart
+final tabs = Feature(
+  name: 'tabs',
+  shell: FeatureShell.indexedStack(
+    branches: [
+      FeatureBranch.mount(
+        catalogRoute,
+        feature: (_) => catalogFeature,
+        initialLocation: catalogListRoute.location,
+      ),
+      FeatureBranch.mount(
+        favoritesRoute,
+        feature: (_) => favoritesFeature,
+        initialLocation: favoritesListRoute.location,
+      ),
+    ],
+    builder: (context, navigation, outlet) => Scaffold(
+      body: outlet,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: navigation.currentIndex,
+        onDestinationSelected: (index) => navigation.goBranch(index),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.store), label: 'Catalog'),
+          NavigationDestination(icon: Icon(Icons.favorite), label: 'Favorites'),
+        ],
+      ),
+    ),
+  ),
+);
+```
+
+Mount `tabs` with `FeatureRoute.mount`, or use it as the root of `FollowApp`.
+Branch paths are absolute, must extend beyond the shell base, and must not have
+overlapping prefixes. `initialIndex` defaults to `0`. The shell builder
+receives a stable controller and must include the outlet exactly once;
+`Feature.builder` must likewise include its content exactly once.
+
+- `navigation.goBranch(index)` restores the last stack visited in that branch.
+  Selecting the current branch leaves its stack unchanged and also cancels a
+  pending switch.
+- `navigation.goBranch(index, reset: true)` returns to that branch's initial
+  location while preserving its scope if the mount identity remains the same.
+- `context.follow.shell` observes the nearest ancestor shell controller. It
+  throws `StateError` outside a shell.
+- `push`, `replace`, and `go` select the destination branch. `go` rebuilds the
+  destination stack and preserves sibling branches of shells that stay mounted.
+- `pop` exhausts the active chain before delegating to the parent navigator; it
+  does not switch tabs.
+- Deep links open directly at the destination without inventing preceding
+  pages. The shell base opens the initial location of the branch selected by
+  `initialIndex`.
+- Guards are reevaluated before a branch becomes active. Denial, errors, and
+  cancellation preserve the previous navigation state. Shells can be nested.
+
+Hidden branches receive no focus, interaction, semantics, or ticker updates,
+but their services and asynchronous work remain alive. Removing the shell
+disposes all its branches. Full-screen routes can be declared in an ancestor
+of the shell.
+
+The URL follows the visible page; switching branches creates a web history
+entry. Back and forward navigation restore stacks and selected branches from
+the history snapshot. Older snapshots remain readable. After a reload,
+navigation can be reconstructed from the snapshot, but DI instances and
+arbitrary widget state are recreated. An inactive branch denied during
+restoration loses its retained state.
+
+### Migrating to 0.5.0
+
+Replace the former `shell: (context, outlet) => ...` callback with
+`builder: (context, child) => ...`. Rename the former `FeatureShell` callback
+typedef to `FeatureBuilder` and `buildShell` calls to `buildContent`. The
+`FeatureShell` name now identifies the branch declaration; the `shell`
+parameter no longer accepts the old callback.
+
+See the **Independent stacks** screen in the example app.
+
+## Page and branch transitions
+
+Follow does not animate by default. Set an app-wide default:
+
+```dart
+FollowApp(
+  feature: appFeature,
+  pageTransition: FollowTransition.fade(),
+  builder: (_, config) => MaterialApp.router(routerConfig: config),
+)
+```
+
+`Feature.pageTransition` overrides the default for its pages and descendant
+features. `FeatureRoute.page` and `FeatureRoute.mount` accept a per-route
+`transition`. Precedence is **route → owning feature → nearest configured
+ancestor → app**. Use `const FollowTransition.none()` to explicitly disable an
+inherited animation. A mount transition animates the entire feature in its
+parent navigator without changing the default for its internal pages.
+
+Presets are `FollowTransition.none()`, `.fade()`, and `.slide()`. Fade and slide
+use `Curves.easeInOutCubic`; slide respects text direction. The default
+`duration` is 300 ms, and `reverseDuration` uses the same value when omitted.
+Negative durations are rejected.
+
+To integrate another package, use `FollowTransition.custom`. Its callback
+receives linear Flutter animations and can apply custom curves:
+
+```dart
+import 'package:animations/animations.dart';
+
+final sharedAxis = FollowTransition.custom(
+  duration: const Duration(milliseconds: 300),
+  reverseDuration: const Duration(milliseconds: 250),
+  builder: (context, animation, secondaryAnimation, child) =>
+      SharedAxisTransition(
+        animation: animation,
+        secondaryAnimation: secondaryAnimation,
+        transitionType: SharedAxisTransitionType.horizontal,
+        child: child,
+      ),
+);
+
+FeatureRoute.page(
+  detailsRoute,
+  transition: sharedAxis,
+  builder: (_, args) => DetailsPage(args: args),
+);
+```
+
+To animate tab changes, use `FeatureShell.animated` with
+`BranchTransition.fade()` or `BranchTransition.custom(...)`:
+
+```dart
+FeatureShell.animated(
+  transition: BranchTransition.custom(
+    builder: (context, animation, secondaryAnimation, child) =>
+        FadeThroughTransition(
+          animation: animation,
+          secondaryAnimation: secondaryAnimation,
+          child: child,
+        ),
+  ),
+  branches: [...],
+  builder: (context, navigation, outlet) => MyLayout(child: outlet),
+);
+```
+
+`animations` is a dependency only for apps using this example; Follow itself
+still depends only on Flutter. The shell callback follows
+`PageTransitionSwitcher` semantics: when the index increases, the primary
+animation drives the incoming branch and the secondary animation drives the
+outgoing one; the motion reverses when the index decreases. Each branch stays
+mounted in the same position in the widget tree.
+
+Behavior:
+
+- `push` animates entry; `pop` uses the reverse duration. `replace` and `go`
+  animate visible pages and remove intermediate pages without animation.
+- The URL, selection, and logical stack change at commit time. Navigation
+  futures do not wait for animation. An exiting page and its dependencies stay
+  alive until the Navigator completes their visual removal.
+- Initial pages, initial deep links, fallbacks, provisional mounts, and history
+  restoration do not animate. Guards must approve navigation before motion
+  begins.
+- When switching branches, only the shell transition runs; internal changes
+  in the destination branch appear complete. For nested shells, only the
+  outermost visible shell whose selection changed animates.
+- Rapid branch switches finish the previous visual transition before starting
+  the latest one, without queuing animations or duplicating Navigators.
+- Only the selected branch receives focus, interaction, and semantics.
+  Inactive content has muted tickers even while visually exiting.
+- `MediaQuery.disableAnimations` removes motion and finishes any transition in
+  progress.
+- Heroes animate within a stack and are isolated by Navigator. They do not
+  cross branches. Custom transitions do not add native Material or Cupertino
+  back gestures.
+
+The **Independent stacks** example shows `SharedAxisTransition` and
+`FadeThroughTransition` in use.
+
+## Guards and fallbacks
 
 ```dart
 FeatureRoute.mount(
@@ -208,24 +396,24 @@ FeatureRoute.mount(
 )
 ```
 
-Guards recebem argumentos já decodificados e acesso à DI. Eles retornam
-`allow`, `deny` ou um redirect tipado. Uma navegação mais nova cancela a
-anterior.
+Guards receive already-decoded arguments and access to dependency injection.
+They return allow, deny, or a typed redirect. A newer navigation request
+cancels the previous one.
 
-`FollowApp` aceita `loadingBuilder`, `notFoundBuilder`, `deniedBuilder`,
-`errorBuilder` e um `RouteInformationProvider` externo para routers isolados.
+`FollowApp` accepts `loadingBuilder`, `notFoundBuilder`, `deniedBuilder`,
+`errorBuilder`, and an external `RouteInformationProvider` for isolated routers.
 
-## Diagnóstico
+## Diagnostics
 
-`Feature.debugDiagnostics` descreve a declaração. O runtime ativo pode ser
-impresso com:
+`Feature.debugDiagnostics` describes the declaration. Print the active
+runtime with:
 
 ```dart
 debugPrint(context.follow.debugDiagnostics.toStringDeep());
 ```
 
-No Flutter Inspector, cada escopo aparece como `FollowFeatureScope<nome>`, com
-estado, base, tokens, políticas, rotas e guards. A inspeção não ativa bindings
-lazy nem imprime os valores das dependências.
+In Flutter Inspector, each scope appears as `FollowFeatureScope<name>` with
+its state, base path, tokens, policies, routes, and guards. Inspection does not
+activate lazy bindings or print dependency values.
 
-Veja o dashboard executável em `example/`.
+See the runnable dashboard in `example/`.

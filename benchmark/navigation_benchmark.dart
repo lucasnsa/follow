@@ -26,7 +26,7 @@ void main() {
         final root = Feature(
           name: 'root',
           routes: tree.routes,
-          shell: (context, outlet) {
+          builder: (context, outlet) {
             navigation = context.follow;
             return outlet;
           },

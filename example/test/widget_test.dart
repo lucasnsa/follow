@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:animations/animations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:example/main.dart';
 
@@ -14,6 +15,60 @@ Future<void> openPlayground(WidgetTester tester) async {
 }
 
 void main() {
+  testWidgets(
+      'animations package receives progressing page and branch animations',
+      (tester) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Pilhas independentes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Catálogo — item 1'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+        tester
+            .widgetList<SharedAxisTransition>(find.byType(SharedAxisTransition))
+            .any((widget) =>
+                widget.animation.value > 0 && widget.animation.value < 1),
+        isTrue);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Favoritos'));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump();
+    }
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+        tester
+            .widgetList<FadeThroughTransition>(
+                find.byType(FadeThroughTransition))
+            .any((widget) =>
+                widget.animation.value > 0 && widget.animation.value < 1),
+        isTrue);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('independent stacks demo retains notes and detail page',
+      (tester) async {
+    await tester.pumpWidget(const MyApp());
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Pilhas independentes'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Minha nota');
+    await tester.tap(find.text('Catálogo — item 1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Favoritos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(
+        of: find.byType(NavigationBar), matching: find.text('Catálogo')));
+    await tester.pumpAndSettle();
+    expect(find.text('Detalhes de Catálogo'), findsOneWidget);
+    await tester.tap(find.text('Voltar à lista'));
+    await tester.pumpAndSettle();
+    expect(find.text('Minha nota'), findsOneWidget);
+  });
+
   testWidgets('login guard, catalog readiness, lazy report and back',
       (tester) async {
     await tester.pumpWidget(const MyApp());
@@ -24,6 +79,9 @@ void main() {
     expect(find.text('Área protegida'), findsOneWidget);
     await tapVisible(tester, find.text('Entrar e continuar'));
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+    // The feature mount now enters with the app's configured transition.
+    await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
     expect(find.text('Inicializando a feature de produtos'), findsOneWidget);
     await tester.pump(const Duration(seconds: 5));

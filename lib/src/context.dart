@@ -55,6 +55,11 @@ final class FollowContext {
 
   RouteData get route => RouteData.of(_context);
 
+  /// Observes the nearest enclosing navigation shell.
+  FollowShellController get shell =>
+      _context.dependOnInheritedWidgetOfExactType<_ShellScope>()?.controller ??
+      (throw StateError('No Follow shell above this context'));
+
   bool get isNavigating => _navigation(listen: true).isNavigating;
   Object? get navigationError => _navigation(listen: true).error;
   StackTrace? get navigationStackTrace =>

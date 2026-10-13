@@ -44,6 +44,16 @@ void _fillFeatureDiagnosticProperties(
       return '${binding.token} (${binding._kind}, $state)';
     }),
   ));
+  if (node?.isShell == true) {
+    properties.add(IntProperty('activeBranch', node!.activeIndex));
+    properties.add(IntProperty(
+        'mountedBranches', node.pages.where((e) => e.node != null).length));
+    properties.add(IterableProperty<String>('branchStacks', [
+      for (final entry in node.pages)
+        if (entry.node != null)
+          '${node.branchIndex(entry)}: ${entry.node!.pages.length} pages',
+    ]));
+  }
   properties.add(IntProperty('routes', definition.routes.length));
   properties.add(IterableProperty<String>(
     'routeDetails',

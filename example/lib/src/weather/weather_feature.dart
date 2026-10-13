@@ -24,7 +24,7 @@ final weatherFeature = Feature(
   routes: [
     FeatureRoute.page(weatherRoute, builder: (_, __) => const WeatherPage())
   ],
-  shell: (context, outlet) => MultiBlocProvider(
+  builder: (context, outlet) => MultiBlocProvider(
     providers: [
       BlocProvider<CitySearchBloc>.value(
           value: context.follow.read<CitySearchBloc>()),

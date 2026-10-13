@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:follow/follow.dart';
 
 import 'navigation.dart';
+import 'shell_demo.dart';
 
 class SelectionPage extends StatelessWidget {
   const SelectionPage({super.key});
@@ -32,9 +33,20 @@ class SelectionPage extends StatelessWidget {
                           color: const Color(0xFF16382F))),
                   const SizedBox(height: 12),
                   const Text(
-                      'Dois aplicativos, uma forma de compor rotas e dependências.',
+                      'Exemplos, uma forma de compor rotas e dependências.',
                       style: TextStyle(fontSize: 17, color: Color(0xFF61736C))),
                   const SizedBox(height: 34),
+                  _ExampleCard(
+                    title: 'Pilhas independentes',
+                    label: 'SHELL + BRANCHES',
+                    description:
+                        'Alterne abas preservando páginas, formulário e rolagem.',
+                    icon: Icons.tab_rounded,
+                    tint: const Color(0xFF5064BD),
+                    background: const Color(0xFFEAEFFF),
+                    onTap: () => context.follow.go(shellDemoRoute.location),
+                  ),
+                  const SizedBox(height: 18),
                   LayoutBuilder(builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 720;
                     final cards = [

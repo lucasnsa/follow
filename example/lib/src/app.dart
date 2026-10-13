@@ -7,6 +7,8 @@ import 'pages.dart';
 import 'products.dart';
 import 'weather/weather_feature.dart';
 import 'selection_page.dart';
+import 'shell_demo.dart';
+import 'motion.dart';
 
 class Session {
   bool signedIn = false;
@@ -23,8 +25,12 @@ final appFeature = Feature(
     }),
   ],
   routes: [
-    FeatureRoute.page(homeRoute, builder: (_, __) => const SelectionPage()),
+    FeatureRoute.mount(shellDemoRoute, feature: (_) => shellDemoFeature),
+    FeatureRoute.page(homeRoute,
+        transition: const FollowTransition.none(),
+        builder: (_, __) => const SelectionPage()),
     FeatureRoute.page(playgroundRoute,
+        transition: sharedAxisTransition,
         builder: (_, __) => const OverviewPage()),
     FeatureRoute.page(
       exploreRoute,
@@ -66,6 +72,7 @@ class FollowExample extends StatelessWidget {
   @override
   Widget build(BuildContext context) => FollowApp(
         feature: appFeature,
+        pageTransition: FollowTransition.fade(),
         loadingBuilder: (_) => const AppStatePage(
           icon: Icons.route_rounded,
           title: 'Preparando as rotas',

@@ -1,25 +1,35 @@
 part of '../follow.dart';
 
-/// An immutable declaration of dependencies, routes, and visual shell.
+/// An immutable declaration of dependencies, navigation, and widget composition.
 final class Feature extends DiagnosticableTree {
   Feature({
     required this.name,
     Iterable<BindingDeclaration> bindings = const [],
     Iterable<FeatureRoute> routes = const [],
+    this.builder,
     this.shell,
+    this.pageTransition,
     Map<String, Object?> diagnostics = const {},
   })  : bindings = List.unmodifiable(bindings),
         routes = List.unmodifiable(routes),
-        diagnostics = Map.unmodifiable(diagnostics);
+        diagnostics = Map.unmodifiable(diagnostics) {
+    if (shell != null && this.routes.isNotEmpty) {
+      throw ArgumentError('A Feature accepts either routes or shell');
+    }
+  }
 
   final String name;
   final List<BindingDeclaration> bindings;
   final List<FeatureRoute> routes;
+  final FeatureBuilder? builder;
   final FeatureShell? shell;
+
+  /// Default page motion for this feature and descendants. Null inherits.
+  final FollowTransition? pageTransition;
   final Map<String, Object?> diagnostics;
 
-  Widget buildShell(BuildContext context, Widget outlet) =>
-      shell?.call(context, outlet) ?? outlet;
+  Widget buildContent(BuildContext context, Widget outlet) =>
+      builder?.call(context, outlet) ?? outlet;
 
   DiagnosticsNode get debugDiagnostics => toDiagnosticsNode(name: 'feature');
 
@@ -39,6 +49,7 @@ final class Feature extends DiagnosticableTree {
       }),
     ));
     properties.add(IntProperty('routes', routes.length));
+    properties.add(IntProperty('branches', shell?.branches.length ?? 0));
     properties.add(IterableProperty<String>(
       'routeDetails',
       routes.map((route) {
@@ -61,11 +72,12 @@ class _FeatureDefinition {
         throw StateError('Duplicate binding: ${binding.token}');
       }
     }
-    patterns = _compileRoutes(feature.routes);
+    patterns = _compileRoutes(routes);
   }
 
   final Feature feature;
   late final List<_RoutePattern> patterns;
   List<BindingDeclaration> get bindings => feature.bindings;
-  List<FeatureRoute> get routes => feature.routes;
+  late final List<FeatureRoute> routes = List.unmodifiable(
+      feature.shell?.branches.map((b) => b._route) ?? feature.routes);
 }

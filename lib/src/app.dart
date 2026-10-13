@@ -9,6 +9,7 @@ class FollowApp extends StatefulWidget {
     required this.feature,
     required this.builder,
     this.initialLocation,
+    this.pageTransition = const FollowTransition.none(),
     this.routeInformationProvider,
     this.loadingBuilder,
     this.notFoundBuilder,
@@ -20,6 +21,9 @@ class FollowApp extends StatefulWidget {
   final Feature feature;
   final FollowAppBuilder builder;
   final String? initialLocation;
+
+  /// App-wide page motion, overridden by features or individual routes.
+  final FollowTransition pageTransition;
   final RouteInformationProvider? routeInformationProvider;
   final WidgetBuilder? loadingBuilder;
   final FollowRouteBuilder? notFoundBuilder;
@@ -34,6 +38,7 @@ class _FollowAppState extends State<FollowApp> {
   late final Feature _feature = widget.feature;
   late final _FollowRouter _router = _FollowRouter(
     initialLocation: widget.initialLocation,
+    pageTransition: widget.pageTransition,
     routeInformationProvider: widget.routeInformationProvider,
     loadingBuilder: widget.loadingBuilder,
     notFoundBuilder: widget.notFoundBuilder,
