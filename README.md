@@ -1,5 +1,7 @@
 # Follow
 
+[Português (Brasil)](README.pt-BR.md)
+
 Immutable features, typed routes, and dependencies whose lifetimes follow the
 widget tree. No global container or external package dependencies.
 
