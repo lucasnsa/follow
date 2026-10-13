@@ -1,6 +1,6 @@
 name: follow
 description: "Immutable widget-tree features with token-scoped dependencies, typed routes and observable initialization."
-version: 0.5.0
+version: 0.5.1
 repository: https://github.com/lucasnsa/follow
 
 environment:

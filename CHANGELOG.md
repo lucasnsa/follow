@@ -1,3 +1,8 @@
+## 0.5.1
+
+* Document the Follow development skill and its installation command in the
+  English and Brazilian Portuguese READMEs.
+
 ## 0.5.0
 
 * Breaking: rename the Feature shell callback to builder, FeatureShell callback

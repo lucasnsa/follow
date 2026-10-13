@@ -422,3 +422,16 @@ com estado, caminho base, tokens, políticas, rotas e guards. A inspeção não
 ativa bindings lazy nem imprime os valores das dependências.
 
 Veja o dashboard executável em `example/`.
+
+## Agentes de código com IA
+
+Instale a [skill de desenvolvimento da Follow](https://skills.sh/lucasnsa/follow/follow-app-development)
+no projeto do seu aplicativo para orientar o agente sobre features, dependências
+por escopo, rotas tipadas, navegação em shells e transições:
+
+```bash
+npx skills add lucasnsa/follow --skill follow-app-development
+```
+
+A skill inclui exemplos do que fazer e evitar e orienta o agente a conferir
+a versão da Follow usada pelo aplicativo antes de recomendar APIs.

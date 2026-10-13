@@ -419,3 +419,16 @@ its state, base path, tokens, policies, routes, and guards. Inspection does not
 activate lazy bindings or print dependency values.
 
 See the runnable dashboard in `example/`.
+
+## AI coding agents
+
+Install Follow's [development skill](https://skills.sh/lucasnsa/follow/follow-app-development)
+in your app project to give your coding agent guidance on features, scoped
+dependencies, typed routes, shell navigation, and transitions:
+
+```bash
+npx skills add lucasnsa/follow --skill follow-app-development
+```
+
+The skill includes do and don't examples and checks the app's Follow version
+before recommending APIs.
